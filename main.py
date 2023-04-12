@@ -3,9 +3,8 @@ import sys
 import openai
 from argparse import ArgumentParser
 import logging
-from rich import print
-from rich.markdown import Markdown
-from prompt_toolkit import prompt, styles
+from rich.markdown import Markdown, Console, Rule
+from prompt_toolkit import prompt
 
 
 def get_system_prompt():
@@ -13,6 +12,15 @@ def get_system_prompt():
              'content': 'You are a helpful assistant. You help editing code and '
                         'suggest improvements. Try keep answers short, but informative. '
                         'Format output so that it is displayed nicely on a terminal with 120 columns'}]
+
+
+def print_text(text, is_user):
+    if is_user:
+        console.print(Markdown(text), style='green')
+        console.print(Rule())
+    else:
+        console.print(Markdown(text))
+        console.print(Rule())
 
 
 if __name__ == '__main__':
@@ -30,19 +38,24 @@ if __name__ == '__main__':
 
     current_session_tokens = 0
     history = get_system_prompt()
-    while True:
-        message = prompt(f'[{args.model} T{current_session_tokens}]>> ')
-        if message == '/exit':
-            logger.info('Done!')
-            sys.exit()
-        elif message == '/reset':
-            logger.info('Clearing conversation')
-            history = get_system_prompt()
-        history.append({'role': 'user', 'content': message})
-        response = openai.ChatCompletion.create(
-            model=args.model, messages=history
-        )
-        response_text = response['choices'][0]['message']
-        history.append(response_text)
-        current_session_tokens += response['usage']['total_tokens']
-        print(Markdown(response_text['content']))
+    console = Console(width=120)
+    try:
+        while True:
+            message = prompt(f'[{args.model} T{current_session_tokens}]>> ')
+            if message == '/exit':
+                logger.info('Done!')
+                sys.exit()
+            elif message == '/reset':
+                logger.info('Clearing conversation')
+                history = get_system_prompt()
+            print_text(message, True)
+            history.append({'role': 'user', 'content': message})
+            response = openai.ChatCompletion.create(
+                model=args.model, messages=history
+            )
+            response_text = response['choices'][0]['message']
+            history.append(response_text)
+            current_session_tokens += response['usage']['total_tokens']
+            print_text(response_text['content'], False)
+    except KeyboardInterrupt:
+        logger.info('Done!')
