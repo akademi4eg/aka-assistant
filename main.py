@@ -56,6 +56,8 @@ if __name__ == '__main__':
                     history = get_system_prompt()
                 elif message.startswith('/save '):
                     _, file_name = message.split()
+                    if not os.path.exists('convos'):
+                        os.mkdir('convos')
                     with open(os.path.join('convos', f'{file_name}.json'), 'w') as f:
                         json.dump(history, f)
                 else:
