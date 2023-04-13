@@ -5,6 +5,10 @@ from argparse import ArgumentParser
 import logging
 from rich.markdown import Markdown, Console, Rule
 from prompt_toolkit import prompt
+import json
+
+
+VERSION = '1.0.0'
 
 
 def get_system_prompt():
@@ -26,6 +30,7 @@ def print_text(text, is_user):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler()])
     logger = logging.getLogger(__name__)
+    logger.info(f'Version {VERSION}')
     openai.api_key = os.getenv("OPENAI_API_KEY")
     models = openai.Model.list()
     available_models = sorted([m['id'] for m in models['data']])
@@ -42,20 +47,29 @@ if __name__ == '__main__':
     try:
         while True:
             message = prompt(f'[{args.model} T{current_session_tokens}]>> ')
-            if message == '/exit':
-                logger.info('Done!')
-                sys.exit()
-            elif message == '/reset':
-                logger.info('Clearing conversation')
-                history = get_system_prompt()
-            print_text(message, True)
-            history.append({'role': 'user', 'content': message})
-            response = openai.ChatCompletion.create(
-                model=args.model, messages=history
-            )
-            response_text = response['choices'][0]['message']
-            history.append(response_text)
-            current_session_tokens += response['usage']['total_tokens']
-            print_text(response_text['content'], False)
-    except KeyboardInterrupt:
+            if message.startswith('/'):
+                if message == '/exit':
+                    logger.info('Done!')
+                    sys.exit()
+                elif message == '/reset':
+                    logger.info('Clearing conversation')
+                    history = get_system_prompt()
+                elif message.startswith('/save '):
+                    _, file_name = message.split()
+                    with open(os.path.join('convos', f'{file_name}.json'), 'w') as f:
+                        json.dump(history, f)
+                else:
+                    commands = ['/exit', '/reset', '/save NAME']
+                    print_text(f'Available commands: {", ".join(commands)}', True)
+            else:
+                print_text(message, True)
+                history.append({'role': 'user', 'content': message})
+                response = openai.ChatCompletion.create(
+                    model=args.model, messages=history
+                )
+                response_text = response['choices'][0]['message']
+                history.append(response_text)
+                current_session_tokens += response['usage']['total_tokens']
+                print_text(response_text['content'], False)
+    except (KeyboardInterrupt, EOFError):
         logger.info('Done!')
