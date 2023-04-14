@@ -5,12 +5,26 @@ from argparse import ArgumentParser
 import logging
 from rich.markdown import Markdown, Console, Rule
 from prompt_toolkit import prompt
+from prompt_toolkit.key_binding import KeyBindings
 import json
 
 from audio import AudioRecorder
 
 
-VERSION = '1.0.1'
+VERSION = '1.0.2'
+
+
+kb = KeyBindings()
+
+
+@kb.add('escape', 'enter')
+def _(event):
+    event.current_buffer.insert_text('\n')
+
+
+@kb.add('enter')
+def _(event):
+    event.current_buffer.validate_and_handle()
 
 
 def get_system_prompt():
@@ -64,9 +78,13 @@ if __name__ == '__main__':
     current_session_tokens = 0
     history = get_system_prompt()
     console = Console(width=120)
+    commands_list = [('/exit', 'To exit: /exit'), ('/reset', 'To clear history: /reset'),
+                     ('/save', 'To save conversation: /save NAME'),
+                     ('/load', 'To restore past conversation: /load NAME'), ('/asr', 'Speak instead of typing: /asr')]
     try:
         while True:
-            message = prompt(f'[{args.model} T{current_session_tokens}]>> ')
+            message = prompt(f'[{args.model} T{current_session_tokens}]>> ', multiline=True, key_bindings=kb,
+                             bottom_toolbar='Type text or a command: ' + ', '.join([c[0] for c in commands_list]))
             if message.startswith('/'):
                 if message == '/exit':
                     logger.info('Done!')
@@ -107,8 +125,8 @@ if __name__ == '__main__':
                     used_tokens = process_user_message(message, history)
                     current_session_tokens += used_tokens
                 else:
-                    commands = ['/exit', '/reset', '/save NAME', '/load NAME', '/asr']
-                    print_text(f'Available commands: {", ".join(commands)}', True)
+                    help_str = "\n".join([c[1] for c in commands_list])
+                    print_text(f'Available commands:\n{help_str}', True)
             else:
                 used_tokens = process_user_message(message, history)
                 current_session_tokens += used_tokens
