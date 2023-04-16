@@ -3,15 +3,18 @@ import sys
 import openai
 from argparse import ArgumentParser
 import logging
-from rich.markdown import Markdown, Console, Rule
+from rich.markdown import Markdown, Rule
+from rich.console import Console
 from prompt_toolkit import prompt
 from prompt_toolkit.key_binding import KeyBindings
 import json
+from rich.segment import Segment
+import base64
 
 from audio import AudioRecorder
 
 
-VERSION = '1.0.2'
+VERSION = '1.0.3'
 
 
 kb = KeyBindings()
@@ -61,6 +64,31 @@ def print_text(text, is_user):
         console.print(Rule())
 
 
+class InlineImage:
+    def __init__(self, data, lines=1, **kwargs):
+        def _b64(value):
+            return base64.b64encode(value).decode('ascii')
+
+        kwargs.update(inline=1)
+
+        if 'name' in kwargs:
+            kwargs['name'] = _b64(kwargs['name'].encode('utf-8'))
+
+        args = ';'.join(f'{k}={v}' for k, v in kwargs.items())
+        move = f'\x1b[{lines-1}A' if lines > 1 else ''
+
+        self._ctrl = f'\x1b]1337;File={args}:{_b64(data)}\a{move}'
+        self._text = lines * '\n'
+
+    def __rich_console__(self, console, options):
+        yield Segment(self._ctrl, control=True)
+        yield Segment(self._text)
+
+
+def print_image(image_path):
+    console.print(InlineImage(open(image_path, 'rb').read()))
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler()])
     logger = logging.getLogger(__name__)
@@ -78,9 +106,10 @@ if __name__ == '__main__':
     current_session_tokens = 0
     history = get_system_prompt()
     console = Console(width=120)
-    commands_list = [('/exit', 'To exit: /exit'), ('/reset', 'To clear history: /reset'),
+    commands_list = [('/exit', 'To exit: /exit'), ('/clear', 'To clear history: /clear'),
                      ('/save', 'To save conversation: /save NAME'),
-                     ('/load', 'To restore past conversation: /load NAME'), ('/asr', 'Speak instead of typing: /asr')]
+                     ('/load', 'To restore past conversation: /load NAME'), ('/asr', 'Speak instead of typing: /asr'),
+                     ('/image', 'Generate an image /image PROMPT'), ('/drop', 'Drop last message')]
     try:
         while True:
             message = prompt(f'[{args.model} T{current_session_tokens}]>> ', multiline=True, key_bindings=kb,
@@ -89,9 +118,12 @@ if __name__ == '__main__':
                 if message == '/exit':
                     logger.info('Done!')
                     sys.exit()
-                elif message == '/reset':
+                elif message == '/clear':
                     logger.info('Clearing conversation')
                     history = get_system_prompt()
+                elif message == '/drop':
+                    logger.info('Dropping last user and assistant messages')
+                    history = history[:-2]
                 elif message.startswith('/save '):
                     _, file_name = message.split()
                     if not os.path.exists('convos'):
@@ -124,6 +156,20 @@ if __name__ == '__main__':
                     history.extend(get_asr_prompt())
                     used_tokens = process_user_message(message, history)
                     current_session_tokens += used_tokens
+                elif message.startswith('/image '):
+                    parts = message.split()
+                    image_prompt = ' '.join(parts[1:])
+                    print_text(f'[C{len(image_prompt)}] {image_prompt}', is_user=True)
+                    response = openai.Image.create(prompt=image_prompt, response_format='b64_json',
+                                                   size='512x512')
+                    created = response['created']
+                    gen_image = base64.decodebytes(response['data'][0]['b64_json'].encode('utf-8'))
+                    img_path = os.path.join('images', f'{created}.png')
+                    if not os.path.exists('images'):
+                        os.mkdir('images')
+                    with open(img_path, 'wb') as f:
+                        f.write(gen_image)
+                    print_image(img_path)
                 else:
                     help_str = "\n".join([c[1] for c in commands_list])
                     print_text(f'Available commands:\n{help_str}', True)
