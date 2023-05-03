@@ -14,7 +14,7 @@ import base64
 from audio import AudioRecorder
 
 
-VERSION = '1.0.3'
+VERSION = '1.0.4'
 
 
 kb = KeyBindings()
@@ -109,7 +109,7 @@ if __name__ == '__main__':
     commands_list = [('/exit', 'To exit: /exit'), ('/clear', 'To clear history: /clear'),
                      ('/save', 'To save conversation: /save NAME'),
                      ('/load', 'To restore past conversation: /load NAME'), ('/asr', 'Speak instead of typing: /asr'),
-                     ('/image', 'Generate an image /image PROMPT'), ('/drop', 'Drop last message')]
+                     ('/image', 'Generate an image: /image PROMPT'), ('/drop', 'Drop last message: /drop')]
     try:
         while True:
             message = prompt(f'[{args.model} T{current_session_tokens}]>> ', multiline=True, key_bindings=kb,
