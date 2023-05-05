@@ -6,6 +6,7 @@ import logging
 import numpy as np
 from typing import List
 from tqdm import tqdm
+from joblib import Parallel, delayed
 
 
 def do_hash(text: str) -> str:
@@ -13,7 +14,7 @@ def do_hash(text: str) -> str:
 
 
 class EmbExtractor:
-    def __init__(self, model='text-embedding-ada-002', storage='./cache'):
+    def __init__(self, model='text-embedding-ada-002', storage='./emb_store'):
         openai.api_key = os.getenv("OPENAI_API_KEY")
         self._storage = storage
         self.model = model
@@ -54,6 +55,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('--model', '-m', default='text-embedding-ada-002', help='model for embeddings')
     parser.add_argument('--storage', '-s', default='./emb_store')
+    parser.add_argument('--nthreads', '-j', type=int, default=25, help='parallelization')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--file', '-f', help='file to read input from')
     group.add_argument('--text', '-t', help='text as input')
@@ -65,6 +67,6 @@ if __name__ == "__main__":
     if args.text is not None:
         extractor.get_emb_for_text(args.text)
     else:
-        lines = [line.strip() for line in open(args.file, 'r') if len(line.strip()) > 0]
-        for line in tqdm(lines, unit='line'):
-            extractor.get_emb_for_text(line)
+        lines = {line.strip() for line in open(args.file, 'r') if len(line.strip()) > 0}
+        Parallel(n_jobs=args.nthreads)(delayed(extractor.get_emb_for_text)(x)
+                                       for x in tqdm(lines, unit='line', total=len(lines)))

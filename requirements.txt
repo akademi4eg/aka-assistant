@@ -4,3 +4,4 @@ prompt_toolkit>=3.0.38
 sounddevice>=0.4.6
 soundfile>=0.12.1
 numpy>=1.24.2
+joblib>=1.2.0
