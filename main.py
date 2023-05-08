@@ -12,9 +12,10 @@ from rich.segment import Segment
 import base64
 
 from audio import AudioRecorder
+from document import EmbDocument
 
 
-VERSION = '1.0.4'
+VERSION = '1.1.0'
 
 
 kb = KeyBindings()
@@ -109,7 +110,8 @@ if __name__ == '__main__':
     commands_list = [('/exit', 'To exit: /exit'), ('/clear', 'To clear history: /clear'),
                      ('/save', 'To save conversation: /save NAME'),
                      ('/load', 'To restore past conversation: /load NAME'), ('/asr', 'Speak instead of typing: /asr'),
-                     ('/image', 'Generate an image: /image PROMPT'), ('/drop', 'Drop last message: /drop')]
+                     ('/image', 'Generate an image: /image PROMPT'), ('/drop', 'Drop last message: /drop'),
+                     ('/doc', 'Load document: /doc URL')]
     try:
         while True:
             message = prompt(f'[{args.model} T{current_session_tokens}]>> ', multiline=True, key_bindings=kb,
@@ -170,6 +172,13 @@ if __name__ == '__main__':
                     with open(img_path, 'wb') as f:
                         f.write(gen_image)
                     print_image(img_path)
+                elif message.startswith('/doc'):
+                    url = message.strip().split()[1]
+                    doc = EmbDocument.from_pdf_url(url)
+                    print_text(doc.summary, False)
+                    history.append({'role': 'user', 'content': f'Please summarize this document: {url}'})
+                    history.append({'role': 'assistant', 'content': doc.summary})
+                    current_session_tokens += doc.used_tokens
                 else:
                     help_str = "\n".join([c[1] for c in commands_list])
                     print_text(f'Available commands:\n{help_str}', True)

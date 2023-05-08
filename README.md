@@ -23,3 +23,4 @@ Pressing enter sends a command to OpenAI. If you want to enter multiple lines, u
 * /drop -- removes last request-response from conversation state
 * /image -- generates an image from a prompts and displays it (tested only on Mac). Images are saved in `./images`
 * /asr -- records your voice until you press Enter, afterwards sends results to chatgpt. Note: there may be problems if you disconnect your headset while CLI tool was already running. Audios and Whisper transcripts are stored in `./audios`
+* /doc URL -- downloads and summarizes a pdf document
